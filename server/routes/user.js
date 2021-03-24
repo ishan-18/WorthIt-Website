@@ -3,6 +3,7 @@ const mongoose = require('mongoose')
 const User = mongoose.model('User')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const auth = require('../middleware/auth')
 
 router.post('/register', async (req,res)=>{
     try {
@@ -66,6 +67,65 @@ router.get('/refresh_token', async (req,res)=>{
             const accesstoken = createAccessToken({id: user.id})
             res.status(200).json({user, accesstoken})
         })
+    } catch (err) {
+        return res.status(500).json({err: err.message})
+    }
+})
+
+router.post('/login', async (req,res)=>{
+    try {
+        const {email, password} = req.body
+        //Checking if fields are empty or not 
+        if(!email || !password) return res.status(400).json({msg: "Please Enter all the fields"})
+
+        //Check if email exists or not
+        const user = await User.findOne({email})
+        if(!user) return res.status(422).json({msg: "User already exists"})
+
+        //Checking Password's length
+        if(password.length < 6) return res.status(400).json({msg: "Password must contain atleast 6 characters"})
+
+        //Checking syntax of email
+        if(!/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(email)){
+            return res.status(422).json({msg: "Invalid Email"})
+        }
+
+        //Compare password and check it matches or not
+        const doMatch = await bcrypt.compare(password, user.password)
+        if(doMatch){
+            const accesstoken = createAccessToken({id: user._id})
+            const refreshtoken = createRefreshToken({id: user._id})
+
+            res.cookie('refreshtoken', refreshtoken, {
+                httpOnly: true,
+                path: '/user/refresh_token'
+            })
+
+            res.status(201).json({accesstoken})
+        }else{
+            return res.status(422).json({msg: "Invalid Email or Password"})
+        }
+    } catch (err) {
+        return res.status(500).json({err: err.message})
+    }
+})
+
+router.get('/logout', async (req,res)=>{
+    try {
+        res.clearCookie('refreshtoken', {
+            path: '/user/refresh_token'
+        })
+        return res.status(200).json({msg: "Logged out Successfully"})
+    } catch (err) {
+        return res.status(500).json({err: err.message})
+    }
+})
+
+router.get('/get_user',auth, async (req,res)=>{
+    try {
+        const user = await User.findById(req.user.id).select('-password')
+        if(!user) return res.status(422).json({msg: "User does not exists"})
+        res.status(200).json({user})
     } catch (err) {
         return res.status(500).json({err: err.message})
     }
