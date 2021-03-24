@@ -1,14 +1,59 @@
 const router = require('express').Router()
+const { query } = require('express')
 const mongoose = require('mongoose')
 const Product = mongoose.model("Product")
 const auth = require('../middleware/auth')
 const authAdmin = require('../middleware/authAdmin')
 
+//Filter, Paginating, Sorting
+class APIFeatures{
+    constructor(query, queryString){
+        this.query = query;
+        this.queryString = queryString;
+    }
+
+    filtering(){
+        const queryObj = {...this.queryString}
+
+        const excludedFields = ['page', 'sort', 'limit']
+        excludedFields.forEach(el=> delete(queryObj[el]))
+
+        let queryStr = JSON.stringify(queryObj)
+        queryStr = queryStr.replace(/\b(gte|gt|lt|lte|regex)\b/g, match => '$' + match)
+
+
+        this.query.find(JSON.parse(queryStr))
+
+        return this;
+    }
+
+    sorting(){
+        if(this.queryString.sort){
+            const sortBy = this.queryString.sort.split(',').join(" ")
+            this.query = this.query.sort(sortBy)
+        }else{
+            this.query = this.query.sort('-createdAt')
+        }
+        return this;
+    }
+
+    paginating(){
+        const page = this.queryString.page * 1 || 1
+        const limit = this.queryString.limit * 1 || 9
+        const skip = (page - 1) * limit;
+        this.query = this.query.skip(skip).limit(limit)
+
+        return this;
+    }
+
+}
+
 router.get('/product', auth, async (req,res)=>{
     try {
-        const product = await Product.find();
+        const features = new APIFeatures(Product.find(), req.query).filtering().sorting().paginating()
+        const product = await features.query
         if(product){
-            res.status(200).json({product})
+            res.status(200).json({status: 'success', result: product.length, product})
         }else{
             return res.status(400).json({msg: "Product doesn't exists"})
         }

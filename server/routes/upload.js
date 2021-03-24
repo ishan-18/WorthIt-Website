@@ -13,7 +13,6 @@ cloudinary.config({
 
 router.post('/upload', auth, authAdmin, async (req,res)=>{
     try {
-        console.log(req.files)
         if(!req.files || Object.keys(req.files).length === 0){
             return res.status(400).json({msg: "No Images Selected"})
         }
