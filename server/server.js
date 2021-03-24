@@ -17,11 +17,13 @@ app.use(fileUpload({
 //Models
 require('./models/user')
 require('./models/category')
+require('./models/product')
 
 //Routes
 app.use('/user', require('./routes/user'))
 app.use('/api', require('./routes/category'))
 app.use('/api', require('./routes/upload'))
+app.use('/api', require('./routes/product'))
 
 //Mongodb connection
 const URI = process.env.MONGO_URI
