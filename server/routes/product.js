@@ -45,7 +45,6 @@ class APIFeatures{
 
         return this;
     }
-
 }
 
 router.get('/product', auth, async (req,res)=>{
